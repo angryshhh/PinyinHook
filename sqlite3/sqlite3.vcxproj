@@ -20,7 +20,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{BF09A4DC-E867-4ADC-8D3E-3B47D753D24C}</ProjectGuid>
+    <ProjectGuid>{DAC8FEB2-8311-408A-AF54-5A9683162832}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>sqlite3</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>

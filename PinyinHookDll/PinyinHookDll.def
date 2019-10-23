@@ -1,0 +1,6 @@
+LIBRARY	PinyinHookDll
+EXPORTS
+SetHook		@2
+Unhook		@3
+SECTIONS
+MySec		READ WRITE SHARED

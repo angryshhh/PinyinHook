@@ -6,11 +6,79 @@
 #include "PinyinTest.h"
 #include "PinyinTestDlg.h"
 #include "afxdialogex.h"
+#include "../sqlite3/sqlite3.h"
+
+#include <string.h>
+#include <sphelper.h>
+#include <sapi.h>
+
+#pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "sapi.lib")
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
+ISpVoice *pVoice = NULL;
+
+void MSSSpeak(LPCTSTR content)
+{
+	//ISpVoice *pVoice = NULL;
+	//CoInitialize(NULL);
+	//CoCreateInstance(CLSID_SpVoice, NULL, CLSCTX_INPROC_SERVER, IID_ISpVoice, (void**)&pVoice);
+	pVoice->SetPriority(SPVPRI_ALERT);
+	pVoice->SetRate(0);
+	pVoice->SetVolume((USHORT)100);
+	pVoice->Speak(content, SPF_ASYNC, NULL);
+	//pVoice->Release();
+	//::CoUninitialize();
+}
+
+sqlite3 *db;
+
+static int callback(void *NotUsed, int argc, char **argv, char **azColName)
+{
+	// 该函数作为sqlite3_exec的第三个参数
+	// 每一条查询结果都执行此函数
+	// 第一个参数为sqlite3_exec的第四个参数，可以用来修改外部数据
+	// 第二个参数是查询结果的列数
+	// 第三个参数是value，argv[i]为第i列的数据
+	// 第四个参数是列名，azColName[i]为第i列的名称
+	int i;
+	for (i = 0; i < argc; i++)
+	{
+		printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+	}
+	printf("\n");
+	return 0;
+}
+
+static int selectRefFromDatabase(void *data, int argc, char **argv, char **azColName)
+{
+	// 因为sqlite3默认为utf8编码，拿到的数据要转换为Unicode编码
+	CString ref = CA2W(argv[0], CP_UTF8);
+	swprintf((WCHAR *)data, L"%s、", ref);
+
+	return 0;
+}
+
+void createTestData()
+{
+	int rc;
+	char *zErrMsg = 0;
+
+	rc = sqlite3_exec(db, "create table py2ref(pinyin varchar(10), reference varchar(30));", 0, 0, &zErrMsg);
+	rc = sqlite3_exec(db, CW2A(_T("insert into py2ref values('张', '张飞的张');"), CP_UTF8), 0, 0, &zErrMsg);
+	rc = sqlite3_exec(db, CW2A(_T("insert into py2ref values('长', '增长的长');"), CP_UTF8), 0, 0, &zErrMsg);
+	rc = sqlite3_exec(db, CW2A(_T("insert into py2ref values('涨', '涨潮的涨');"), CP_UTF8), 0, 0, &zErrMsg);
+	rc = sqlite3_exec(db, CW2A(_T("insert into py2ref values('章', '文章的章');"), CP_UTF8), 0, 0, &zErrMsg);
+	rc = sqlite3_exec(db, CW2A(_T("insert into py2ref values('帐', '帐篷的帐');"), CP_UTF8), 0, 0, &zErrMsg);
+	if (rc != SQLITE_OK)
+	{
+		//fprintf(stderr, "SQL error: %s\n", zErrMsg);
+		sqlite3_free(zErrMsg);
+	}
+}
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
@@ -64,8 +132,11 @@ BEGIN_MESSAGE_MAP(CPinyinTestDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_WM_COPYDATA()
+	ON_WM_DESTROY()
 END_MESSAGE_MAP()
 
+_declspec(dllimport) void SetHook(HWND hwnd);
 
 // CPinyinTestDlg 消息处理程序
 
@@ -99,6 +170,18 @@ BOOL CPinyinTestDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
+	// 安装钩子
+	SetHook(m_hWnd);
+	// 为pVoice创建com对象
+	CoInitialize(NULL);
+	CoCreateInstance(CLSID_SpVoice, NULL, CLSCTX_INPROC_SERVER, IID_ISpVoice, (void**)&pVoice);
+	//	打开数据库
+	int rc = sqlite3_open("pinyin.db", &db);
+	if (rc)
+	{
+		MSSSpeak(L"数据库打开错误");
+	}
+	//createTestData();		//建立一些数据用来测试
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -152,3 +235,97 @@ HCURSOR CPinyinTestDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+
+
+BOOL CPinyinTestDlg::OnCopyData(CWnd* pWnd, COPYDATASTRUCT* pCopyDataStruct)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+
+	//SetDlgItemText(IDC_EDIT2, (LPWSTR)pCopyDataStruct->lpData);
+	// 以上方法弃用，lpData在非hook加载进程中会有问题
+	// 尚不清楚原因，故根据此消息使用没问题的剪贴板
+	if ((ULONG_PTR)pCopyDataStruct->dwData == 8080)		// 8080为该消息来自拼音钩子的标识
+	{
+		if (OpenClipboard())
+		{
+			if (IsClipboardFormatAvailable(CF_UNICODETEXT))
+			{
+				HANDLE hClip;
+				LPWSTR pBuf;
+
+				hClip = GetClipboardData(CF_UNICODETEXT);
+				pBuf = (LPWSTR)GlobalLock(hClip);		//获得候选列表
+				EmptyClipboard();						//建议拿到候选列表后清空剪贴板
+				GlobalUnlock(hClip);
+
+				//SetDlgItemText(IDC_EDIT2, pBuf);
+
+				WCHAR
+					speakContent[256] = _T("\0"),
+					candidateStr[64],
+					sql[512];
+				int
+					start = 0, end = 0,
+					j = 1,
+					length = 0;
+
+				while (0 != wcscmp(pBuf + start, L"\0"))
+				{
+					while (!iswblank(pBuf[end]))
+					{
+						end++;
+					}
+					if (start == end)
+					{
+						break;
+					}
+					// 拿到查询条件，即候选词
+					for (int i = 0; start + i < end; i++)
+					{
+						swprintf_s(candidateStr + i, 64 - i, L"%c", pBuf[start + i]);
+					}
+					// 将候选词写入speakContent
+					swprintf_s(speakContent + length, 256 - length, L"%d、%s、", j, candidateStr);
+					j++;
+					length = lstrlenW(speakContent);
+					start = end + 1;
+					end++;
+
+					int rc;
+					char *zErrMsg = 0;
+					swprintf_s(sql, 512, L"select reference from py2ref where pinyin='%s';", candidateStr);		// 构建sql语句
+
+					// 查询数据库，并将提示信息写入speakContent
+					rc = sqlite3_exec(db, CW2A(sql, CP_UTF8), selectRefFromDatabase, speakContent + length, &zErrMsg);		// sqlite3默认使用utf8编码，所以第二个参数需要将Unicode转为utf8
+					if (rc != SQLITE_OK)
+					{
+						swprintf_s(speakContent + length, 256 - length, L"查询失败、");
+
+						sqlite3_free(zErrMsg);
+					}
+
+					length = lstrlenW(speakContent);
+				}
+				SetDlgItemText(IDC_EDIT2, speakContent);
+				MSSSpeak(speakContent);
+			}
+			CloseClipboard();
+		}
+	}
+
+	return CDialogEx::OnCopyData(pWnd, pCopyDataStruct);
+}
+
+_declspec(dllimport) void Unhook();
+void CPinyinTestDlg::OnDestroy()
+{
+	CDialogEx::OnDestroy();
+
+	// TODO: 在此处添加消息处理程序代码
+	// 卸载钩子
+	Unhook();
+	// 清理pVoice
+	::CoUninitialize();
+	// 关闭数据库
+	sqlite3_close(db);
+}

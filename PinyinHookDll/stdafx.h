@@ -14,3 +14,7 @@
 
 
 // 在此处引用程序需要的其他标头
+#include <string>
+#pragma comment(lib, "Imm32.lib")	// 避免imm相关函数出现LNK2019错误
+
+using namespace std;
