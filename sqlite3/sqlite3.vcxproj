@@ -95,6 +95,9 @@
       <SubSystem>Windows</SubSystem>
       <ModuleDefinitionFile>sqlite3.def</ModuleDefinitionFile>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /e /r /y $(ProjectDir)sqlite3.exe $(OutDir)</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -126,6 +129,9 @@
       <SubSystem>Windows</SubSystem>
       <ModuleDefinitionFile>sqlite3.def</ModuleDefinitionFile>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /e /r /y $(ProjectDir)sqlite3.exe $(OutDir)</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -149,6 +155,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="sqlite3.def" />
+    <None Include="sqlite3.exe" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sqlite3.h" />

@@ -23,6 +23,7 @@
     <None Include="sqlite3.def">
       <Filter>源文件</Filter>
     </None>
+    <None Include="sqlite3.exe" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sqlite3.h">

@@ -53,7 +53,7 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName)
 	return 0;
 }
 
-static int selectRefFromDatabase(void *data, int argc, char **argv, char **azColName)
+static int selectWordFromDatabase(void *data, int argc, char **argv, char **azColName)
 {
 	// 因为sqlite3默认为utf8编码，拿到的数据要转换为Unicode编码
 	CString ref = CA2W(argv[0], CP_UTF8);
@@ -176,7 +176,7 @@ BOOL CPinyinTestDlg::OnInitDialog()
 	CoInitialize(NULL);
 	CoCreateInstance(CLSID_SpVoice, NULL, CLSCTX_INPROC_SERVER, IID_ISpVoice, (void**)&pVoice);
 	//	打开数据库
-	int rc = sqlite3_open("pinyin.db", &db);
+	int rc = sqlite3_open("wcp.db", &db);
 	if (rc)
 	{
 		MSSSpeak(L"数据库打开错误");
@@ -293,10 +293,10 @@ BOOL CPinyinTestDlg::OnCopyData(CWnd* pWnd, COPYDATASTRUCT* pCopyDataStruct)
 
 					int rc;
 					char *zErrMsg = 0;
-					swprintf_s(sql, 512, L"select reference from py2ref where pinyin='%s';", candidateStr);		// 构建sql语句
+					swprintf_s(sql, 512, L"select word from t_word where id in (select word_id from t_character_word where char_id in (select id from t_character where character='%s')) limit 1;", candidateStr);		// 构建sql语句
 
 					// 查询数据库，并将提示信息写入speakContent
-					rc = sqlite3_exec(db, CW2A(sql, CP_UTF8), selectRefFromDatabase, speakContent + length, &zErrMsg);		// sqlite3默认使用utf8编码，所以第二个参数需要将Unicode转为utf8
+					rc = sqlite3_exec(db, CW2A(sql, CP_UTF8), selectWordFromDatabase, speakContent + length, &zErrMsg);		// sqlite3默认使用utf8编码，所以第二个参数需要将Unicode转为utf8
 					if (rc != SQLITE_OK)
 					{
 						swprintf_s(speakContent + length, 256 - length, L"查询失败、");
