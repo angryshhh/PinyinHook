@@ -293,7 +293,7 @@ BOOL CPinyinTestDlg::OnCopyData(CWnd* pWnd, COPYDATASTRUCT* pCopyDataStruct)
 
 					int rc;
 					char *zErrMsg = 0;
-					swprintf_s(sql, 512, L"select word from t_word where id in (select word_id from t_character_word where char_id in (select id from t_character where character='%s')) limit 1;", candidateStr);		// 构建sql语句
+					swprintf_s(sql, 512, L"select word from t_word join (t_character_word join t_character on char_id = t_character.id) on word_id = t_word.id where character='%s'order by frequency desc limit 1", candidateStr);		// 构建sql语句
 
 					// 查询数据库，并将提示信息写入speakContent
 					rc = sqlite3_exec(db, CW2A(sql, CP_UTF8), selectWordFromDatabase, speakContent + length, &zErrMsg);		// sqlite3默认使用utf8编码，所以第二个参数需要将Unicode转为utf8
